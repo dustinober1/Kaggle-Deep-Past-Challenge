@@ -8,7 +8,9 @@
 - Publication links: 7,502 matches to 56 PDFs
 - Unique texts matched: 3,770
 - New texts (not in train.csv): 2,587
-- Pipeline scripts ready for API execution
+- **AICC Scraper**: 94% success rate (no LLM needed!)
+  - Uses JSON API at `/p/pXXX.json`
+  - Output: `data/processed/aicc_translations.csv`
 
 ## Sentence Alignment Results (Phase 1.1)
 - Overlapping documents: 253 (train ∩ sentences)
