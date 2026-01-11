@@ -28,3 +28,4 @@
 - Created `eda/` directory with 6 analysis scripts
 - Generated visualizations in `eda/figures/`
 - Completed comprehensive `report.md` with EDA findings
+- Created `todo.md` with competition roadmap
