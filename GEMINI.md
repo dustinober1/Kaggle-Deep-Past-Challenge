@@ -2,7 +2,7 @@
 
 ## Project Status
 - **Date**: 2026-01-11
-- **Current Task**: AICC extraction complete, data merged ✅
+- **Current Task**: Phase 5 Baseline Model Development implemented ✅
 
 ## Merged Training Dataset
 - **Total samples: 6,316** (4× increase!)
@@ -53,6 +53,10 @@
 - `scripts/translation_extractor.py` - LLM extraction
 - `scripts/translation_pipeline.py` - DE/FR → EN
 - `scripts/align_and_filter.py` - Quality filtering
+- `scripts/dataset_loader.py` - Akkadian dataset loader
+- `scripts/finetune_pretrained.py` - mBART/NLLB/M2M fine-tuning
+- `scripts/custom_transformer.py` - Custom model architecture
+- `scripts/train_custom.py` - Custom model training loop
 
 ## Changelog
 - Initialized git repository and `.venv`
@@ -61,4 +65,9 @@
 - **Phase 1.2**: Publication matcher (7,502 links created)
 - **Phase 1.2**: AICC scraper completed (4,755 translations)
 - **Phase 1.2**: Merged training data (6,316 samples)
+- **Phase 4**: Tokenizer training (SentencePiece)
+- **Phase 5**: Baseline Model Development
+  - Implemented unified fine-tuning script for mBART/NLLB/M2M
+  - Implemented Custom Transformer training from scratch
+  - Verified training loop execution on MPS
 
