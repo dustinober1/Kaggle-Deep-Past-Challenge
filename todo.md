@@ -143,8 +143,8 @@
 
 ### 4.3 Alternative Approaches
 - [x] Test Character-level handling (Completed via benchmark)
-- [ ] Evaluate morphological tokenization
-- [ ] Consider hybrid approaches
+- [x] Evaluate morphological tokenization (Verified BPE alignment with `analyze_morphology.py`)
+- [x] Consider hybrid approaches (Adopted BPE + Special Tokens strategy)
 
 ---
 
