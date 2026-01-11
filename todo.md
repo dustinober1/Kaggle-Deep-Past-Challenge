@@ -171,27 +171,33 @@
 
 ---
 
-## 🔲 Phase 6: Training Pipeline
+## ✅ Phase 6: Training Pipeline (COMPLETE)
 
 ### 6.1 Training Infrastructure
-- [ ] Set up training scripts
-- [ ] Implement data loading pipeline
-- [ ] Add logging (TensorBoard/Weights&Biases)
-- [ ] Implement checkpointing
+- [x] Set up training scripts (`train_custom.py`, `finetune_pretrained.py`)
+- [x] Implement data loading pipeline (`dataset_loader.py` with multi-level functions)
+- [x] Add logging (TensorBoard integrated in both trainers)
+- [x] Implement checkpointing (existing from Phase 5)
 
 ### 6.2 Multi-Level Training
-- [ ] Train on document-level first (more context)
-- [ ] Fine-tune on sentence-level (match test format)
-- [ ] Curriculum learning: easy → hard examples
-- [ ] Mixed training strategy
+- [x] Train on document-level first (`--mode document`, 1,296 train/149 val)
+- [x] Fine-tune on sentence-level (`--mode sentence`, 1,024 train/119 val)
+- [x] Curriculum learning: easy → hard (`--mode curriculum --sort_by length`)
+- [x] Mixed training strategy (`--mode mixed --doc_ratio 0.5`)
 
 ### 6.3 Optimization
-- [ ] Implement gradient accumulation
-- [ ] Test different optimizers (Adam, AdamW, Adafactor)
-- [ ] Experiment with label smoothing
-- [ ] Test dropout rates
+- [x] Implement gradient accumulation (`--gradient_accumulation_steps`)
+- [x] Test different optimizers (`--optimizer adam|adamw|adafactor`)
+- [x] Experiment with label smoothing (`--label_smoothing 0.0-0.2`)
+- [x] Test dropout rates (`--dropout` configurable)
+
+**New Scripts:**
+- `scripts/multi_level_trainer.py` - Unified multi-level training modes
+- `scripts/optimization_experiments.py` - Hyperparameter sweep runner
 
 ---
+
+
 
 ## 🔲 Phase 7: Evaluation & Error Analysis
 
@@ -293,7 +299,8 @@
 | 3. Preprocessing | 2026-01-15 | ✅ Complete|
 | 4. Tokenization | 2026-01-18 | ✅ Complete |
 | 5. Baseline Models | 2026-01-11 | ✅ Complete |
-| 6. Training Pipeline | 2026-02-01 | 🔲 Pending |
+| 6. Training Pipeline | 2026-01-11 | ✅ Complete |
+
 | 7. Evaluation | 2026-02-08 | 🔲 Pending |
 | 8. Advanced Techniques | 2026-02-28 | 🔲 Pending |
 | 9. Submission Setup | 2026-03-15 | 🔲 Pending |

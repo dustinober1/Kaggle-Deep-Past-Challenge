@@ -160,7 +160,10 @@ def main():
         use_mps_device=True if device == "mps" else False,
         push_to_hub=False,
         logging_strategy="epoch",
+        logging_dir=os.path.join(output_path, "tensorboard"),
+        report_to=["tensorboard"],
     )
+
     
     data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
     

@@ -2,13 +2,21 @@
 
 ## Project Status
 - **Date**: 2026-01-11
-- **Current Task**: Phase 5 Baseline Model Development Completed ✅
+- **Current Task**: Phase 6 Training Pipeline Completed ✅
 
 ## Merged Training Dataset
 - **Total samples: 6,316** (4× increase!)
   - Original train.csv: 1,561
   - AICC scraped: 4,755
 - Output: `data/processed/augmented_train.csv`
+
+## Phase 6 Results
+- **Training Infrastructure**: TensorBoard logging, checkpointing
+- **Multi-Level Training**:
+  - Document-level: 1,296 train / 149 val
+  - Sentence-level: 1,024 train / 119 val
+  - Curriculum & mixed modes implemented
+- **Optimization**: Gradient accumulation, Adam/AdamW/Adafactor, label smoothing, dropout
 
 ## Phase 1.3 Results
 - **Lexicon Enhancement**: Built 3 lookup resources
@@ -53,11 +61,13 @@
 - `scripts/translation_extractor.py` - LLM extraction
 - `scripts/translation_pipeline.py` - DE/FR → EN
 - `scripts/align_and_filter.py` - Quality filtering
-- `scripts/dataset_loader.py` - Akkadian dataset loader
+- `scripts/dataset_loader.py` - Akkadian dataset loader ✓ (multi-level)
 - `scripts/finetune_pretrained.py` - mBART/NLLB/M2M fine-tuning ✓
 - `scripts/custom_transformer.py` - Custom model architecture (with ALiBi) ✓
-- `scripts/train_custom.py` - Custom model training loop (with CP/ES) ✓
+- `scripts/train_custom.py` - Custom model training loop ✓ (TensorBoard, grad accum)
 - `scripts/compare_models.py` - Model comparison suite ✓
+- `scripts/multi_level_trainer.py` - Multi-level training modes ✓
+- `scripts/optimization_experiments.py` - Hyperparameter sweeps ✓
 
 ## Changelog
 - Initialized git repository and `.venv`
@@ -72,4 +82,9 @@
   - Implemented Custom Transformer with ALiBi, Noam Scheduler, Checkpointing
   - Verified training loop execution on MPS
   - Created comparison script
+- **Phase 6**: Training Pipeline
+  - Added TensorBoard logging to train_custom.py and finetune_pretrained.py
+  - Added gradient accumulation, optimizer selection, label smoothing, dropout
+  - Created multi-level training: document/sentence/curriculum/mixed modes
+  - Created optimization_experiments.py for hyperparameter sweeps
 
