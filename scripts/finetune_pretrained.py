@@ -67,22 +67,15 @@ def main():
         src_lang_code = "ar_AR"
         tgt_lang_code = "en_XX"
     elif args.model == "nllb":
-        src_lang_code = "ara_Arab" # Arabic as proxy, or maybe we can just use input chars directly.
-        # But wait, Akkadian transliteration is Latin. So 'ara_Arab' might be bad tokenization wise?
-        # Actually, if we use Latin characters, we should probably use a Latin script language as proxy 
-        # to ensure the tokenizer doesn't expect Arabic script.
-        # Let's use 'eng_Latn' for source too, but maybe that confuses the model?
-        # Better: NLLB supports many languages. Let's try 'eng_Latn' for both but rely on fine-tuning.
-        # OR 'ak_Latn' doesn't exist.
-        # Let's use 'eng_Latn' for now for source since it's Latin script.
         src_lang_code = "eng_Latn" 
         tgt_lang_code = "eng_Latn" 
+        tokenizer.src_lang = src_lang_code
+        tokenizer.tgt_lang = tgt_lang_code
     elif args.model == "m2m":
-        tokenizer.src_lang = "ar" # M2M uses 2-letter codes. 
-        # Again, Latin script issue. M2M 'en' is reliable.
-        # Let's use 'en' for source inputs ensuring it handles Latin chars.
         src_lang_code = "en" 
         tgt_lang_code = "en"
+        tokenizer.src_lang = src_lang_code
+        tokenizer.tgt_lang = tgt_lang_code
         
     # Load Data
     raw_datasets = get_akkadian_dataset()
@@ -137,12 +130,15 @@ def main():
     run_name = f"{args.model}-finetune"
     output_path = os.path.join(args.output_dir, run_name)
     
-    # Check for MPS
+    # Check for device
     if torch.backends.mps.is_available():
         print("Using MPS device.")
         device = "mps"
+    elif torch.cuda.is_available():
+        print(f"Using CUDA device: {torch.cuda.get_device_name(0)}")
+        device = "cuda"
     else:
-        print("Using CPU (MPS not found or not used).")
+        print("Using CPU.")
         device = "cpu"
         
     training_args = Seq2SeqTrainingArguments(
