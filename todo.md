@@ -151,17 +151,17 @@
 ## 🔲 Phase 5: Baseline Model Development
 
 ### 5.1 Pretrained Model Fine-tuning
-- [ ] Set up training environment (PyTorch/HuggingFace)
-- [ ] Fine-tune mBART-50 on Akkadian→English
-- [ ] Fine-tune NLLB-200 on Akkadian→English
-- [ ] Fine-tune M2M-100 on Akkadian→English
+- [x] Set up training environment (PyTorch/HuggingFace)
+- [/] Fine-tune mBART-50 on Akkadian→English (Script implemented)
+- [/] Fine-tune NLLB-200 on Akkadian→English (Script implemented)
+- [/] Fine-tune M2M-100 on Akkadian→English (Script implemented)
 - [ ] Compare validation performance
 
 ### 5.2 Custom Transformer
-- [ ] Implement 6-layer encoder-decoder
+- [x] Implement 6-layer encoder-decoder
 - [ ] Test relative position encodings
 - [ ] Experiment with attention patterns
-- [ ] Train from scratch on combined data
+- [/] Train from scratch on combined data (Script implemented)
 
 ### 5.3 Model Configuration
 - [ ] Optimize batch size for available GPU memory
