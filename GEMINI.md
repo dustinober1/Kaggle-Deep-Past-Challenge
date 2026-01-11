@@ -2,13 +2,17 @@
 
 ## Project Status
 - **Date**: 2026-01-11
-- **Current Task**: Phase 1.1 Sentence Alignment Complete
+- **Current Task**: Phase 1.2 Publication Translation Extraction (scripts ready)
 
-## Sentence Alignment Results
+## Phase 1.2 Results
+- Publication links: 7,502 matches to 56 PDFs
+- Unique texts matched: 3,770
+- New texts (not in train.csv): 2,587
+- Pipeline scripts ready for API execution
+
+## Sentence Alignment Results (Phase 1.1)
 - Overlapping documents: 253 (train ∩ sentences)
 - Aligned sentence pairs: 1,213
-- Average sentences/document: 4.79
-- Valid translations: 99.5%
 - Output: `data/processed/sentence_aligned_train.csv`
 
 ## Dataset Summary
@@ -17,24 +21,24 @@
 | train.csv | 1,561 | Labeled translations |
 | published_texts.csv | 7,953 | All transliterations |
 | publications.csv | 216,602 | OCR from 952 PDFs |
-| OA_Lexicon_eBL.csv | 39,332 | Word forms |
-| eBL_Dictionary.csv | 19,215 | Definitions |
-| Sentences.csv | 9,782 | Sentence alignments |
+| publication_links.csv | 7,502 | Text-to-PDF links |
 
 ## Key Metrics
 - Training samples: 1,561 (document-level)
-- Untranslated texts: 6,388 (potential for extraction)
+- Potential new samples: 2,587 (via publication extraction)
 - Word expansion ratio: 1.48× (Akkadian → English)
-- Lexicon coverage: 18.2% of train vocabulary
+
+## Scripts
+- `scripts/sentence_alignment.py` - Phase 1.1
+- `scripts/publication_matcher.py` - Link texts to PDFs ✓
+- `scripts/translation_extractor.py` - LLM extraction (requires API key)
+- `scripts/translation_pipeline.py` - DE/FR → EN
+- `scripts/align_and_filter.py` - Quality filtering
 
 ## Changelog
-- Initialized git repository
-- Created `.venv` virtual environment
-- Added `.gitignore`
-- Formatted competition rules and documentation in `rules/`
-- Created `eda/` directory with 6 analysis scripts
-- Generated visualizations in `eda/figures/`
-- Completed comprehensive `report.md` with EDA findings
-- Created `todo.md` with competition roadmap
-- **Phase 1.1**: Created `scripts/sentence_alignment.py` for sentence-level dataset
-- **Phase 1.1**: Generated 1,213 aligned pairs from 253 documents
+- Initialized git repository and `.venv`
+- Created EDA in `eda/` with `report.md`
+- **Phase 1.1**: Sentence alignment (1,213 pairs)
+- **Phase 1.2**: Publication matcher (7,502 links created)
+- **Phase 1.2**: Translation extraction pipeline ready
+

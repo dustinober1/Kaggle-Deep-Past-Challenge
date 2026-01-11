@@ -9,11 +9,11 @@
 - [x] Validate alignment quality on sample
 
 ### 1.2 Publication Translation Extraction
-- [ ] Build ID matching pipeline (aliases → pdf_name)
-- [ ] Extract translation sections using LLM
-- [ ] Translate German/French translations to English
-- [ ] Align extracted translations with published_texts.csv
-- [ ] Quality filter extracted pairs
+- [x] Build ID matching pipeline (aliases → pdf_name)
+- [x] Extract translation sections using LLM
+- [x] Translate German/French translations to English
+- [x] Align extracted translations with published_texts.csv
+- [x] Quality filter extracted pairs
 
 ### 1.3 Lexicon Enhancement
 - [ ] Build word-level translation memory from eBL_Dictionary
