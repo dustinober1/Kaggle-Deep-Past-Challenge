@@ -199,30 +199,35 @@
 
 
 
-## 🔲 Phase 7: Evaluation & Error Analysis
+## ✅ Phase 7: Evaluation & Error Analysis (COMPLETE)
 
 ### 7.1 Evaluation Metrics
-- [ ] Implement BLEU scoring (SacreBLEU)
-- [ ] Implement chrF++ scoring
-- [ ] Calculate geometric mean (competition metric)
-- [ ] Track per-example scores
+- [x] Implement BLEU scoring (SacreBLEU)
+- [x] Implement chrF++ scoring
+- [x] Calculate geometric mean (competition metric)
+- [x] Track per-example scores
 
 ### 7.2 Error Analysis
-- [ ] Categorize error types:
-  - [ ] Named entity errors (people, places)
-  - [ ] Number/measurement errors
-  - [ ] Gap handling errors
-  - [ ] Word order errors
-- [ ] Analyze by sentence length
-- [ ] Analyze by genre/document type
-- [ ] Identify systematic patterns
+- [x] Categorize error types:
+  - [x] Named entity errors (people, places)
+  - [x] Number/measurement errors
+  - [x] Gap handling errors
+  - [x] Word order errors
+- [x] Analyze by sentence length
+- [x] Analyze by genre/document type
+- [x] Identify systematic patterns
 
 ### 7.3 Validation Strategy
-- [ ] Cross-validation for robust estimates
-- [ ] Test on held-out documents
-- [ ] Compare document vs sentence performance
+- [x] Cross-validation for robust estimates
+- [x] Test on held-out documents
+- [x] Compare document vs sentence performance
 
----
+**New Scripts:**
+- `scripts/evaluation_metrics.py` - BLEU, chrF++, geometric mean with SacreBLEU
+- `scripts/error_analyzer.py` - Error categorization by type (names, numbers, gaps, order)
+- `scripts/evaluate.py` - Unified evaluation driver with cross-validation
+
+
 
 ## 🔲 Phase 8: Advanced Techniques
 
@@ -301,7 +306,7 @@
 | 5. Baseline Models | 2026-01-11 | ✅ Complete |
 | 6. Training Pipeline | 2026-01-11 | ✅ Complete |
 
-| 7. Evaluation | 2026-02-08 | 🔲 Pending |
+| 7. Evaluation | 2026-01-11 | ✅ Complete |
 | 8. Advanced Techniques | 2026-02-28 | 🔲 Pending |
 | 9. Submission Setup | 2026-03-15 | 🔲 Pending |
 | 10. Final Submission | 2026-03-23 | 🔲 Deadline |

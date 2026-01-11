@@ -2,13 +2,19 @@
 
 ## Project Status
 - **Date**: 2026-01-11
-- **Current Task**: Phase 6 Training Pipeline Completed ✅
+- **Current Task**: Phase 7 Evaluation & Error Analysis Completed ✅
 
 ## Merged Training Dataset
 - **Total samples: 6,316** (4× increase!)
   - Original train.csv: 1,561
   - AICC scraped: 4,755
 - Output: `data/processed/augmented_train.csv`
+
+## Phase 7 Results
+- **Evaluation Metrics**: BLEU, chrF++, geometric mean via SacreBLEU
+- **Error Analysis**: Categorized by named entities, numbers, gaps, word order
+- **Validation Strategy**: Cross-validation, document vs sentence comparison
+- **Per-Example Scoring**: Detailed breakdown with patterns
 
 ## Phase 6 Results
 - **Training Infrastructure**: TensorBoard logging, checkpointing
@@ -68,6 +74,9 @@
 - `scripts/compare_models.py` - Model comparison suite ✓
 - `scripts/multi_level_trainer.py` - Multi-level training modes ✓
 - `scripts/optimization_experiments.py` - Hyperparameter sweeps ✓
+- `scripts/evaluation_metrics.py` - BLEU, chrF++, geometric mean scoring ✓
+- `scripts/error_analyzer.py` - Error categorization by type ✓
+- `scripts/evaluate.py` - Unified evaluation driver ✓
 
 ## Changelog
 - Initialized git repository and `.venv`
@@ -87,4 +96,9 @@
   - Added gradient accumulation, optimizer selection, label smoothing, dropout
   - Created multi-level training: document/sentence/curriculum/mixed modes
   - Created optimization_experiments.py for hyperparameter sweeps
+- **Phase 7**: Evaluation & Error Analysis
+  - Implemented BLEU, chrF++, geometric mean with SacreBLEU
+  - Created error analyzer for named entities, numbers, gaps, word order
+  - Added cross-validation and document vs sentence comparison
+  - Created unified evaluate.py driver script
 
