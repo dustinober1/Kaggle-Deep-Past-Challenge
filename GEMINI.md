@@ -2,15 +2,21 @@
 
 ## Project Status
 - **Date**: 2026-01-11
-- **Current Task**: Phase 1.2 Publication Translation Extraction (scripts ready)
+- **Current Task**: AICC extraction complete, data merged ✅
+
+## Merged Training Dataset
+- **Total samples: 6,316** (4× increase!)
+  - Original train.csv: 1,561
+  - AICC scraped: 4,755
+- Output: `data/processed/augmented_train.csv`
 
 ## Phase 1.2 Results
+- **AICC Scraper**: 77% success rate (4,755 / 6,141 texts)
+  - Uses JSON API at `/p/pXXX.json`
+  - No LLM or browser automation needed
+  - Output: `data/processed/aicc_translations.csv`
 - Publication links: 7,502 matches to 56 PDFs
 - Unique texts matched: 3,770
-- New texts (not in train.csv): 2,587
-- **AICC Scraper**: 94% success rate (no LLM needed!)
-  - Uses JSON API at `/p/pXXX.json`
-  - Output: `data/processed/aicc_translations.csv`
 
 ## Sentence Alignment Results (Phase 1.1)
 - Overlapping documents: 253 (train ∩ sentences)
@@ -20,20 +26,24 @@
 ## Dataset Summary
 | Dataset | Rows | Purpose |
 |---------|------|---------|
-| train.csv | 1,561 | Labeled translations |
+| augmented_train.csv | 6,316 | **Merged training set** |
+| train.csv | 1,561 | Original labeled translations |
+| aicc_translations.csv | 4,755 | AICC scraped translations |
 | published_texts.csv | 7,953 | All transliterations |
 | publications.csv | 216,602 | OCR from 952 PDFs |
-| publication_links.csv | 7,502 | Text-to-PDF links |
 
 ## Key Metrics
-- Training samples: 1,561 (document-level)
-- Potential new samples: 2,587 (via publication extraction)
+- Training samples: 6,316 (merged)
+- Avg transliteration length: 469 chars
+- Avg translation length: 548 chars
 - Word expansion ratio: 1.48× (Akkadian → English)
 
 ## Scripts
-- `scripts/sentence_alignment.py` - Phase 1.1
+- `scripts/aicc_scraper.py` - AICC JSON API scraper ✓
+- `scripts/merge_aicc_data.py` - Merge with train.csv ✓
+- `scripts/sentence_alignment.py` - Phase 1.1 ✓
 - `scripts/publication_matcher.py` - Link texts to PDFs ✓
-- `scripts/translation_extractor.py` - LLM extraction (requires API key)
+- `scripts/translation_extractor.py` - LLM extraction
 - `scripts/translation_pipeline.py` - DE/FR → EN
 - `scripts/align_and_filter.py` - Quality filtering
 
@@ -42,5 +52,6 @@
 - Created EDA in `eda/` with `report.md`
 - **Phase 1.1**: Sentence alignment (1,213 pairs)
 - **Phase 1.2**: Publication matcher (7,502 links created)
-- **Phase 1.2**: Translation extraction pipeline ready
+- **Phase 1.2**: AICC scraper completed (4,755 translations)
+- **Phase 1.2**: Merged training data (6,316 samples)
 
