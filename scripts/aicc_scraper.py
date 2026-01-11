@@ -1,196 +1,228 @@
-#!/usr/bin/env python3
 """
-AICC Scraper - Phase 1.2 Alternative Extraction
-
-Scrapes AI translations from aicuneiform.com using their JSON API.
-No LLM or browser automation needed!
-
-Input: published_texts.csv (AICC_translation URLs)
-Output: data/processed/aicc_translations.csv
+AICC Translation Scraper
+========================
+Scrapes translations from aicuneiform.com URLs.
+Note: Uses respectful rate limiting and caching.
 """
-
-import argparse
-import json
-import re
-import time
-from html.parser import HTMLParser
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from urllib.request import urlopen, Request
-from urllib.error import HTTPError, URLError
 
 import pandas as pd
+import requests
+import time
+import json
+import re
+from pathlib import Path
+from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
+DATA_DIR = Path(__file__).parent.parent / "data"
+OUTPUT_DIR = DATA_DIR / "processed"
+CACHE_DIR = OUTPUT_DIR / "aicc_cache"
+CACHE_DIR.mkdir(exist_ok=True)
 
-def parse_translation(html: str) -> Tuple[str, str]:
-    """Parse HTML to extract Akkadian and translation using regex."""
-    if not html:
-        return ('', '')
-    
-    # Unescape HTML entities
-    html = html.replace('\\n', '\n').replace('&quot;', '"').replace('&amp;', '&')
-    
-    akkadian_lines = []
-    translation_lines = []
-    
-    # Split HTML by language section markers
-    # Each section starts with <div class='lang-XXX
-    parts = re.split(r"(<div class='lang-[^']+)", html)
-    
-    current_lang = None
-    for i, part in enumerate(parts):
-        if part.startswith("<div class='lang-"):
-            # Extract language type
-            if 'lang-akk' in part:
-                current_lang = 'akk'
-            elif 'lang-ml_en' in part:
-                current_lang = 'en'
-            else:
-                current_lang = None
-        elif current_lang and i > 0:
-            # Extract span content from this section
-            lines = re.findall(r"<span class='line[^']*'>([^<]+)</span>", part)
-            if current_lang == 'akk':
-                akkadian_lines.extend(lines)
-            elif current_lang == 'en':
-                translation_lines.extend(lines)
-    
-    return (
-        ' '.join(akkadian_lines),
-        ' '.join(translation_lines)
-    )
+# Rate limiting
+REQUESTS_PER_SECOND = 2
+REQUEST_DELAY = 1.0 / REQUESTS_PER_SECOND
 
+def get_cache_path(url):
+    """Generate cache file path for URL."""
+    # Create safe filename from URL
+    safe_name = re.sub(r'[^\w]', '_', url.split('=')[-1] if '=' in url else url.split('/')[-1])
+    return CACHE_DIR / f"{safe_name}.json"
 
-def extract_p_number(url: str) -> Optional[str]:
-    """Extract P-number from AICC URL."""
-    # URL format: https://aicuneiform.com/search?q=P361099
-    match = re.search(r'[Pp](\d+)', url)
-    if match:
-        return f"P{match.group(1)}"
-    return None
-
-
-def fetch_publication_json(p_number: str, cache: Dict[str, dict]) -> Optional[dict]:
-    """Fetch publication JSON from AICC API."""
-    # API pattern: /p/pXXX.json where XXX is first 4 chars of P-number (lowercase)
-    prefix = p_number[:4].lower()
-    json_url = f"https://aicuneiform.com/p/{prefix}.json"
+def fetch_aicc_translation(url, session=None):
+    """
+    Fetch translation from an AICC URL.
+    Returns dict with translation or None if failed.
+    """
+    cache_path = get_cache_path(url)
     
-    if json_url in cache:
-        return cache[json_url]
+    # Check cache first
+    if cache_path.exists():
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            pass
     
     try:
-        req = Request(json_url, headers={'User-Agent': 'Mozilla/5.0 Deep Past Challenge Research'})
-        with urlopen(req, timeout=30) as response:
-            data = json.loads(response.read().decode('utf-8'))
-            cache[json_url] = data
-            return data
-    except (HTTPError, URLError, json.JSONDecodeError) as e:
-        print(f"  Error fetching {json_url}: {e}")
-        return None
+        if session is None:
+            session = requests.Session()
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Academic Research - Akkadian Translation Project)'
+        }
+        
+        response = session.get(url, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Try to find translation content
+            # AICC structure varies, try multiple approaches
+            result = {
+                'url': url,
+                'status': 'success',
+                'translation': None,
+                'transliteration': None,
+                'metadata': {}
+            }
+            
+            # Look for translation divs/sections
+            for div in soup.find_all(['div', 'section', 'p']):
+                text = div.get_text(strip=True)
+                
+                # Look for translation markers
+                if 'Translation' in text or 'translation' in text:
+                    # Get the content after "Translation"
+                    trans_match = re.search(r'[Tt]ranslation[:\s]*(.+)', text, re.DOTALL)
+                    if trans_match:
+                        result['translation'] = trans_match.group(1)[:2000]
+                
+                # Look for transliteration
+                if 'Transliteration' in text or any(c in text for c in ['ša', 'um-ma', 'a-na']):
+                    if not result['transliteration']:
+                        result['transliteration'] = text[:2000]
+            
+            # Try finding specific elements
+            for elem in soup.find_all(class_=re.compile(r'translation|trans', re.I)):
+                if not result['translation']:
+                    result['translation'] = elem.get_text(strip=True)[:2000]
+            
+            # Cache result
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+            
+            return result
+        else:
+            return {'url': url, 'status': 'error', 'error': f'HTTP {response.status_code}'}
+            
+    except Exception as e:
+        return {'url': url, 'status': 'error', 'error': str(e)}
 
-
-def scrape_aicc_translations(
-    texts_df: pd.DataFrame,
-    sample_size: Optional[int] = None,
-    delay: float = 0.5
-) -> pd.DataFrame:
-    """Scrape translations for texts with AICC URLs."""
+def scrape_aicc_translations(max_urls=None, batch_size=100):
+    """
+    Scrape translations from AICC URLs.
+    Uses rate limiting and caching.
+    """
+    print("="*70)
+    print("AICC Translation Scraper")
+    print("="*70)
     
-    # Filter to texts with AICC URLs
-    has_url = texts_df[texts_df['AICC_translation'].notna()].copy()
-    print(f"Texts with AICC URLs: {len(has_url)}")
+    # Load URLs
+    aicc_df = pd.read_csv(OUTPUT_DIR / "aicc_urls.csv")
+    print(f"Total AICC URLs: {len(aicc_df)}")
     
-    if sample_size:
-        has_url = has_url.head(sample_size)
-        print(f"Sampling first {sample_size}")
+    if max_urls:
+        aicc_df = aicc_df.head(max_urls)
+        print(f"Processing first {max_urls} URLs")
     
-    # Group by P-number prefix to minimize API calls
+    # Check what's already cached
+    cached_count = sum(1 for url in aicc_df['AICC_translation'] if get_cache_path(url).exists())
+    print(f"Already cached: {cached_count}")
+    
     results = []
-    json_cache = {}
+    session = requests.Session()
     
-    for i, (_, row) in enumerate(has_url.iterrows()):
-        if i > 0 and i % 100 == 0:
-            print(f"Progress: {i}/{len(has_url)}")
+    urls_to_process = [
+        (row['oare_id'], row['AICC_translation'], row['transliteration'])
+        for _, row in aicc_df.iterrows()
+        if pd.notna(row['AICC_translation'])
+    ]
+    
+    print(f"URLs to process: {len(urls_to_process)}")
+    print(f"Estimated time: {len(urls_to_process) * REQUEST_DELAY / 60:.1f} minutes")
+    
+    for i, (oare_id, url, translit) in enumerate(urls_to_process):
+        if i > 0 and i % 50 == 0:
+            print(f"Progress: {i}/{len(urls_to_process)} ({100*i/len(urls_to_process):.1f}%)")
         
-        url = row['AICC_translation']
-        p_number = extract_p_number(url)
+        result = fetch_aicc_translation(url, session)
         
-        if not p_number:
-            continue
-        
-        # Fetch JSON (may be cached)
-        pub_data = fetch_publication_json(p_number, json_cache)
-        
-        if not pub_data or p_number not in pub_data:
-            continue
-        
-        # Parse HTML
-        html = pub_data[p_number].get('html', '')
-        akkadian, translation = parse_translation(html)
-        
-        if akkadian or translation:
+        if result and result.get('status') == 'success':
             results.append({
-                'oare_id': row['oare_id'],
-                'p_number': p_number,
-                'aicc_akkadian': akkadian,
-                'aicc_translation': translation,
-                'existing_transliteration': row.get('transliteration', ''),
+                'oare_id': oare_id,
+                'url': url,
+                'transliteration': translit,
+                'aicc_translation': result.get('translation', ''),
+                'aicc_transliteration': result.get('transliteration', ''),
+                'status': 'success'
+            })
+        else:
+            results.append({
+                'oare_id': oare_id,
+                'url': url,
+                'transliteration': translit,
+                'status': 'error',
+                'error': result.get('error', 'Unknown error') if result else 'No response'
             })
         
-        # Rate limiting (minimal since we cache by prefix)
-        if p_number[:4] not in [r.get('p_number', '')[:4] for r in results[:-1]]:
-            time.sleep(delay)
+        # Rate limiting
+        time.sleep(REQUEST_DELAY)
     
-    return pd.DataFrame(results)
+    # Save results
+    results_df = pd.DataFrame(results)
+    results_df.to_csv(OUTPUT_DIR / "aicc_translations.csv", index=False)
+    
+    success_count = len(results_df[results_df['status'] == 'success'])
+    with_trans = len(results_df[results_df['aicc_translation'].notna() & (results_df['aicc_translation'] != '')])
+    
+    print(f"\nResults:")
+    print(f"  Successful requests: {success_count}")
+    print(f"  With translations: {with_trans}")
+    print(f"  Saved to: {OUTPUT_DIR / 'aicc_translations.csv'}")
+    
+    return results_df
 
-
-def main():
-    parser = argparse.ArgumentParser(description='Scrape AICC translations')
-    parser.add_argument('--sample', type=int, help='Process only N texts for testing')
-    parser.add_argument('--output', type=str, default='data/processed/aicc_translations.csv')
-    parser.add_argument('--delay', type=float, default=0.3, help='Delay between API calls')
-    args = parser.parse_args()
+def check_aicc_sample():
+    """
+    Check a sample AICC URL to understand the structure.
+    """
+    print("="*70)
+    print("Checking AICC URL Sample")
+    print("="*70)
     
-    base_dir = Path(__file__).parent.parent
-    texts_path = base_dir / 'data' / 'published_texts.csv'
-    train_path = base_dir / 'data' / 'train.csv'
-    output_path = base_dir / args.output
+    aicc_df = pd.read_csv(OUTPUT_DIR / "aicc_urls.csv")
+    sample_url = aicc_df['AICC_translation'].iloc[0]
     
-    print("Loading data...")
-    texts_df = pd.read_csv(texts_path)
-    train_df = pd.read_csv(train_path)
+    print(f"Sample URL: {sample_url}")
     
-    # Exclude texts already in train.csv
-    train_ids = set(train_df['oare_id'])
-    texts_df = texts_df[~texts_df['oare_id'].isin(train_ids)]
-    print(f"Texts not in train.csv: {len(texts_df)}")
-    
-    print("\nScraping AICC translations...")
-    results_df = scrape_aicc_translations(
-        texts_df,
-        sample_size=args.sample,
-        delay=args.delay
-    )
-    
-    print(f"\n=== RESULTS ===")
-    print(f"Scraped translations: {len(results_df)}")
-    print(f"With Akkadian text: {(results_df['aicc_akkadian'].str.len() > 0).sum()}")
-    print(f"With translation: {(results_df['aicc_translation'].str.len() > 0).sum()}")
-    
-    if len(results_df) > 0:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        results_df.to_csv(output_path, index=False)
-        print(f"\nSaved to {output_path}")
+    try:
+        response = requests.get(sample_url, timeout=30)
+        print(f"Status: {response.status_code}")
         
-        # Show sample
-        print("\n=== SAMPLE OUTPUT ===")
-        for _, row in results_df.head(2).iterrows():
-            print(f"\noare_id: {row['oare_id']}")
-            print(f"P-number: {row['p_number']}")
-            print(f"AICC Akkadian: {row['aicc_akkadian'][:100]}...")
-            print(f"AICC Translation: {row['aicc_translation'][:100]}...")
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Show page structure
+            print(f"\nPage title: {soup.title.string if soup.title else 'No title'}")
+            
+            # Find main content
+            main_divs = soup.find_all('div', class_=True)[:10]
+            print(f"\nMain div classes found:")
+            for div in main_divs:
+                classes = div.get('class', [])
+                text_preview = div.get_text(strip=True)[:100]
+                if text_preview:
+                    print(f"  {classes}: {text_preview}...")
+            
+            # Save raw HTML for inspection
+            with open(OUTPUT_DIR / "aicc_sample.html", 'w', encoding='utf-8') as f:
+                f.write(response.text)
+            print(f"\nSaved HTML to: {OUTPUT_DIR / 'aicc_sample.html'}")
+            
+    except Exception as e:
+        print(f"Error: {e}")
 
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == '--check':
+        check_aicc_sample()
+    elif len(sys.argv) > 1 and sys.argv[1] == '--scrape':
+        max_urls = int(sys.argv[2]) if len(sys.argv) > 2 else 100
+        scrape_aicc_translations(max_urls=max_urls)
+    else:
+        print("Usage:")
+        print("  python aicc_scraper.py --check    # Check sample URL structure")
+        print("  python aicc_scraper.py --scrape N # Scrape N URLs")

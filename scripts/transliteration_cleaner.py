@@ -265,6 +265,61 @@ def clean_whitespace(text: str) -> str:
     return text
 
 
+def convert_parenthetical_determinatives(text: str) -> str:
+    """
+    Convert parenthetical determinatives to curly-bracket format.
+    
+    In some transcription conventions, determinatives appear as (d), (ki), etc.
+    This converts them to the standard {d}, {ki} format.
+    
+    Examples:
+        - (d)UTU → {d}UTU
+        - a-lim(ki) → a-lim{ki}
+        - (m)A-šur → {m}A-šur
+        - (f)IŠTAR → {f}IŠTAR
+    """
+    if not text or pd.isna(text):
+        return ""
+    
+    # Common determinatives that appear in parentheses
+    # Order matters - longer patterns first to avoid partial matches
+    paren_determinatives = [
+        'mul',    # stars
+        'lu₂', 'lu2', 'lú',  # people/professions
+        'e₂', 'e2',   # buildings
+        'uru',    # settlements
+        'kur',    # lands/mountains
+        'geš', 'ĝeš', 'giš',  # wood/trees
+        'tug₂', 'tug2',  # textiles
+        'dub',    # tablets/documents
+        'id₂', 'id2',   # rivers/canals
+        'mušen',  # birds
+        'na₄', 'na4',   # stone
+        'kuš',    # hides/skin
+        'u₂', 'u2',    # plants
+        'urudu',  # copper
+        'zabar',  # bronze
+        'ki',     # earth/location (must come after others ending in ki)
+        'mi',     # feminine
+        'd',      # deity
+        'm',      # masculine
+        'f',      # feminine
+    ]
+    
+    # Convert each parenthetical determinative to curly-bracket form
+    for det in paren_determinatives:
+        # Match (det) both before and after words
+        # Before word: (d)UTU
+        pattern_before = r'\((' + re.escape(det) + r')\)(?=[A-Za-zŠṢṬḪšṣṭḫÀÁÂÃÄÅàáâãäå₀₁₂₃₄₅₆₇₈₉])'
+        text = re.sub(pattern_before, r'{\1}', text, flags=re.IGNORECASE)
+        
+        # After word: a-lim(ki)
+        pattern_after = r'(?<=[A-Za-zŠṢṬḪšṣṭḫÀÁÂÃÄÅàáâãäå₀₁₂₃₄₅₆₇₈₉-])\((' + re.escape(det) + r')\)'
+        text = re.sub(pattern_after, r'{\1}', text, flags=re.IGNORECASE)
+    
+    return text
+
+
 def remove_parenthetical_comments(text: str) -> str:
     """
     Remove or handle parenthetical comments.
@@ -272,6 +327,9 @@ def remove_parenthetical_comments(text: str) -> str:
     - (erasure) → remove entirely
     - (x signs) → <gap> or <big_gap>
     - Keep meaningful content if present
+    
+    Note: This should be called AFTER convert_parenthetical_determinatives()
+    to avoid removing determinatives.
     """
     if not text or pd.isna(text):
         return ""
@@ -300,11 +358,12 @@ def clean_transliteration(text: str, verbose: bool = False) -> str:
     Order matters! Steps are applied in sequence:
     1. Remove line numbers
     2. Remove scribal annotations
-    3. Remove parenthetical comments
-    4. Standardize gaps (before bracket normalization)
-    5. Normalize brackets
-    6. Normalize determinatives
-    7. Clean whitespace
+    3. Convert parenthetical determinatives: (d) → {d}
+    4. Remove parenthetical comments
+    5. Standardize gaps (before bracket normalization)
+    6. Normalize brackets
+    7. Normalize determinatives (curly-bracket format)
+    8. Clean whitespace
     
     Args:
         text: Raw transliteration text
@@ -328,27 +387,33 @@ def clean_transliteration(text: str, verbose: bool = False) -> str:
     if verbose:
         print(f"  After scribal annotations: {text[:100]}...")
     
-    # Step 3: Remove parenthetical comments
+    # Step 3: Convert parenthetical determinatives to curly-bracket format
+    # This MUST come before remove_parenthetical_comments to preserve determinatives
+    text = convert_parenthetical_determinatives(text)
+    if verbose:
+        print(f"  After paren determinatives: {text[:100]}...")
+    
+    # Step 4: Remove parenthetical comments
     text = remove_parenthetical_comments(text)
     if verbose:
         print(f"  After parenthetical: {text[:100]}...")
     
-    # Step 4: Standardize gaps (MUST come before bracket normalization)
+    # Step 5: Standardize gaps (MUST come before bracket normalization)
     text = standardize_gaps(text)
     if verbose:
         print(f"  After gaps: {text[:100]}...")
     
-    # Step 5: Normalize brackets
+    # Step 6: Normalize brackets
     text = normalize_brackets(text)
     if verbose:
         print(f"  After brackets: {text[:100]}...")
     
-    # Step 6: Normalize determinatives
+    # Step 7: Normalize determinatives (standardize format)
     text = normalize_determinatives(text)
     if verbose:
         print(f"  After determinatives: {text[:100]}...")
     
-    # Step 7: Clean whitespace
+    # Step 8: Clean whitespace
     text = clean_whitespace(text)
     
     return text

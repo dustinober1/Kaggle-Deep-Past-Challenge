@@ -1,250 +1,239 @@
-#!/usr/bin/env python3
 """
-Translation Extractor - Phase 1.2 Step 2
-
-Uses Gemini LLM to extract translation sections from publication OCR text.
-Identifies transliteration + translation pairs from matched PDF pages.
-
-Input: publication_links.csv, publications.csv
-Output: data/processed/extracted_translations.csv
+Advanced Translation Extractor from Publications
+=================================================
+Extracts aligned translation pairs from OCR'd scholarly publications.
+Uses more sophisticated patterns to identify Akkadian-English pairs.
 """
-
-import argparse
-import json
-import os
-import re
-import time
-from pathlib import Path
-from typing import Dict, List, Optional
 
 import pandas as pd
+import re
+import json
+from pathlib import Path
+from collections import defaultdict
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    print("Warning: google-generativeai not installed. Run: pip install google-generativeai")
+DATA_DIR = Path(__file__).parent.parent / "data"
+OUTPUT_DIR = DATA_DIR / "processed"
 
-
-EXTRACTION_PROMPT = """You are an expert in Assyriology analyzing OCR text from academic publications about ancient Mesopotamian texts.
-
-Given the following page content from a publication, identify if it contains translations of Akkadian/Old Assyrian texts.
-
-For EACH translation found, extract:
-1. The text identifier (if mentioned, e.g. "Text 1", "Kt a/k 123", etc.)
-2. The translation (English, German, or French)
-3. The language of the translation (EN, DE, or FR)
-
-Return a JSON array of objects with these fields:
-- "text_id": identifier if found, or null
-- "translation": the extracted translation text
-- "language": "EN", "DE", or "FR"
-- "confidence": "high", "medium", or "low"
-
-If there are NO translations found, return an empty array: []
-
-PAGE CONTENT:
-{page_text}
-
-IMPORTANT:
-- Only extract actual TRANSLATIONS, not transliterations (which use cuneiform sign names)
-- Translations are in modern language (English, German, French) rendering the meaning
-- Ignore bibliography, footnotes about grammar, and editorial comments
-- Focus on complete sentences or meaningful phrases
-
-JSON Response:"""
-
-
-def setup_gemini(api_key: Optional[str] = None) -> bool:
-    """Configure Gemini API."""
-    if not GEMINI_AVAILABLE:
-        return False
+def is_akkadian_text(text):
+    """Check if text looks like Akkadian transliteration."""
+    # Akkadian markers
+    akkadian_patterns = [
+        r'\b[a-z]+-[a-z]+\b',  # Hyphenated syllables
+        r'\b[A-Z]+\.[A-Z]+\b',  # Sumerian logograms with dots
+        r'(?:um-ma|a-na|i-na|ša|šu-ma)\b',  # Common Akkadian words
+        r'[àáèéìíùú]',  # Accented vowels
+        r'[šṣṭḫ]',  # Special characters
+    ]
     
-    key = api_key or os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
-    if not key:
-        print("Error: No Gemini API key found. Set GEMINI_API_KEY environment variable.")
-        return False
+    score = 0
+    for pattern in akkadian_patterns:
+        if re.search(pattern, text):
+            score += 1
     
-    genai.configure(api_key=key)
-    return True
+    # Must have at least 2 Akkadian markers and hyphenated words
+    has_hyphens = len(re.findall(r'\b[a-z]+-[a-z]+\b', text)) >= 2
+    return score >= 2 and has_hyphens
 
+def is_english_translation(text):
+    """Check if text looks like English translation."""
+    # Common translation words
+    english_markers = [
+        r'\b(the|and|to|of|for|he|she|you|his|her|my|your|will|has|have|said)\b',
+        r'\b(silver|minas|shekels|textiles|merchant|house|tablet)\b',
+        r'\b(send|give|pay|bring|take|owe|receive)\b',
+    ]
+    
+    score = 0
+    text_lower = text.lower()
+    for pattern in english_markers:
+        matches = len(re.findall(pattern, text_lower))
+        if matches > 0:
+            score += matches
+    
+    # Should have several English words and no heavy Akkadian markers
+    return score >= 3 and not is_akkadian_text(text)
 
-def extract_translations_from_page(
-    page_text: str,
-    model: "genai.GenerativeModel",
-    max_retries: int = 3
-) -> List[Dict]:
-    """Extract translations from a single page using Gemini."""
-    if not page_text or len(str(page_text).strip()) < 100:
-        return []
+def extract_translation_pairs(text, pdf_name, page):
+    """
+    Extract translation pairs from publication text.
+    Look for patterns like:
+    - Akkadian text followed by translation in quotes
+    - Numbered lines with Akkadian and translation
+    - Explicit "Translation:" sections
+    """
+    pairs = []
     
-    prompt = EXTRACTION_PROMPT.format(page_text=str(page_text)[:8000])  # Truncate long pages
+    # Pattern 1: Akkadian followed by quoted English
+    # e.g., a-na pu-šu-kēn "to Puzur-kēn"
+    pattern1 = r'([a-zšṣṭḫàáèéìíùú-]+(?:\s+[a-zšṣṭḫàáèéìíùú-]+){2,})\s*["""]([^"""]+)["""]'
+    for match in re.finditer(pattern1, text):
+        akk = match.group(1).strip()
+        eng = match.group(2).strip()
+        if is_akkadian_text(akk) and is_english_translation(eng) and len(eng) > 10:
+            pairs.append({
+                'transliteration': akk,
+                'translation': eng,
+                'source': 'publication_quoted',
+                'pdf_name': pdf_name,
+                'page': page
+            })
     
-    for attempt in range(max_retries):
-        try:
-            response = model.generate_content(prompt)
-            text = response.text.strip()
-            
-            # Extract JSON from response
-            if text.startswith('['):
-                json_str = text
-            else:
-                # Try to find JSON array in response
-                match = re.search(r'\[[\s\S]*\]', text)
-                if match:
-                    json_str = match.group()
-                else:
-                    return []
-            
-            results = json.loads(json_str)
-            return results if isinstance(results, list) else []
-            
-        except json.JSONDecodeError:
-            if attempt < max_retries - 1:
-                time.sleep(1)
-            continue
-        except Exception as e:
-            if "429" in str(e) or "quota" in str(e).lower():
-                # Rate limit - wait and retry
-                time.sleep(30)
-                continue
-            print(f"Error extracting: {e}")
-            return []
+    # Pattern 2: Line numbers with transliteration and translation
+    # e.g., 1-3: um-ma pu-šu-kēn-ma: "Say to Puzur-kēn:"
+    pattern2 = r'(\d+[-–]\d+|\d+)[:\s]+([a-zšṣṭḫàáèéìíùú][a-zšṣṭḫàáèéìíùú\s-]+)\s*[:=]\s*["""]?([^"""]+)["""]?'
+    for match in re.finditer(pattern2, text):
+        akk = match.group(2).strip()
+        eng = match.group(3).strip()
+        if is_akkadian_text(akk) and is_english_translation(eng) and len(eng) > 10 and len(eng) < 500:
+            pairs.append({
+                'transliteration': akk,
+                'translation': eng,
+                'source': 'publication_numbered',
+                'pdf_name': pdf_name,
+                'page': page
+            })
     
-    return []
+    # Pattern 3: Parenthetical translations
+    # e.g., um-ma a-ta-ma (thus you [said])
+    pattern3 = r'([a-zšṣṭḫàáèéìíùú][a-zšṣṭḫàáèéìíùú\s-]{5,})\s*\(([^)]{10,200})\)'
+    for match in re.finditer(pattern3, text):
+        akk = match.group(1).strip()
+        eng = match.group(2).strip()
+        if is_akkadian_text(akk) and is_english_translation(eng):
+            pairs.append({
+                'transliteration': akk,
+                'translation': eng,
+                'source': 'publication_parenthetical',
+                'pdf_name': pdf_name,
+                'page': page
+            })
+    
+    return pairs
 
-
-def process_matches(
-    links_df: pd.DataFrame,
-    pubs_df: pd.DataFrame,
-    model: "genai.GenerativeModel",
-    sample_size: Optional[int] = None,
-    dry_run: bool = False
-) -> pd.DataFrame:
-    """Process matched publications and extract translations."""
+def extract_all_translations():
+    """Extract translations from all publications."""
+    print("="*70)
+    print("ADVANCED TRANSLATION EXTRACTION FROM PUBLICATIONS")
+    print("="*70)
     
-    # Get unique PDF names from links
-    pdf_names = links_df['pdf_name'].unique()
-    print(f"Processing {len(pdf_names)} unique PDFs...")
+    # Load publications
+    pub_df = pd.read_csv(DATA_DIR / "publications.csv", low_memory=False)
+    print(f"Total pages: {len(pub_df)}")
     
-    if sample_size:
-        pdf_names = pdf_names[:sample_size]
-        print(f"  (limited to {sample_size} for sampling)")
+    # Filter to pages with Akkadian
+    akk_pages = pub_df[pub_df['has_akkadian'] == True].copy()
+    print(f"Pages with Akkadian: {len(akk_pages)}")
     
-    all_extractions = []
+    all_pairs = []
     
-    for i, pdf_name in enumerate(pdf_names):
-        print(f"\n[{i+1}/{len(pdf_names)}] {pdf_name[:60]}...")
+    for _, row in akk_pages.iterrows():
+        text = str(row['page_text'])
+        pdf_name = row['pdf_name']
+        page = row['page']
         
-        # Get pages from this PDF (include all pages since translations may 
-        # appear without Akkadian markers)
-        pdf_pages = pubs_df[pubs_df['pdf_name'] == pdf_name].head(50)  # Limit pages per PDF
+        pairs = extract_translation_pairs(text, pdf_name, page)
+        all_pairs.extend(pairs)
+    
+    print(f"\nExtracted pairs: {len(all_pairs)}")
+    
+    # Deduplicate by transliteration
+    seen = set()
+    unique_pairs = []
+    for pair in all_pairs:
+        key = pair['transliteration'].lower()
+        if key not in seen:
+            seen.add(key)
+            unique_pairs.append(pair)
+    
+    print(f"Unique pairs: {len(unique_pairs)}")
+    
+    # Save
+    if unique_pairs:
+        pairs_df = pd.DataFrame(unique_pairs)
+        pairs_df.to_csv(OUTPUT_DIR / "publication_extracted_pairs.csv", index=False)
+        print(f"Saved to: {OUTPUT_DIR / 'publication_extracted_pairs.csv'}")
         
-        if len(pdf_pages) == 0:
-            print(f"  No Akkadian pages found")
-            continue
-        
-        print(f"  {len(pdf_pages)} Akkadian pages")
-        
-        # Get texts linked to this PDF
-        linked_texts = links_df[links_df['pdf_name'] == pdf_name]['oare_id'].unique()
-        
-        if dry_run:
-            print(f"  Would process {len(pdf_pages)} pages for {len(linked_texts)} linked texts")
-            continue
-        
-        # Extract from each page
-        for _, page_row in pdf_pages.iterrows():
-            extractions = extract_translations_from_page(
-                page_row['page_text'],
-                model
-            )
-            
-            for ext in extractions:
-                all_extractions.append({
-                    'pdf_name': pdf_name,
-                    'page': page_row['page'],
-                    'text_id': ext.get('text_id'),
-                    'translation': ext.get('translation'),
-                    'language': ext.get('language'),
-                    'confidence': ext.get('confidence'),
-                    'linked_oare_ids': ','.join(linked_texts)
+        # Show samples
+        print("\nSample extracted pairs:")
+        print("-"*50)
+        for pair in unique_pairs[:5]:
+            print(f"AKK: {pair['transliteration'][:60]}...")
+            print(f"ENG: {pair['translation'][:60]}...")
+            print()
+    
+    return unique_pairs
+
+def create_final_training_set():
+    """Create the final consolidated training set."""
+    print("\n" + "="*70)
+    print("CREATING FINAL TRAINING SET")
+    print("="*70)
+    
+    all_data = []
+    
+    # 1. Original training data (document level)
+    train_df = pd.read_csv(DATA_DIR / "train.csv")
+    for _, row in train_df.iterrows():
+        all_data.append({
+            'transliteration': row['transliteration'],
+            'translation': row['translation'],
+            'source': 'train_document',
+            'oare_id': row['oare_id']
+        })
+    print(f"Original training docs: {len(train_df)}")
+    
+    # 2. Aligned sentence pairs
+    aligned_path = OUTPUT_DIR / "aligned_sentence_pairs.csv"
+    if aligned_path.exists():
+        aligned_df = pd.read_csv(aligned_path)
+        for _, row in aligned_df.iterrows():
+            if pd.notna(row['transliteration']) and pd.notna(row['translation']):
+                all_data.append({
+                    'transliteration': row['transliteration'],
+                    'translation': row['translation'],
+                    'source': 'aligned_sentence',
+                    'oare_id': row.get('oare_id', '')
                 })
-            
-            # Rate limiting
-            time.sleep(0.5)
-        
-        print(f"  Extracted {len([e for e in all_extractions if e['pdf_name'] == pdf_name])} translations")
+        print(f"Aligned sentences: {len(aligned_df)}")
     
-    return pd.DataFrame(all_extractions)
+    # 3. Publication extracted pairs
+    pub_path = OUTPUT_DIR / "publication_extracted_pairs.csv"
+    if pub_path.exists():
+        pub_df = pd.read_csv(pub_path)
+        for _, row in pub_df.iterrows():
+            all_data.append({
+                'transliteration': row['transliteration'],
+                'translation': row['translation'],
+                'source': 'publication',
+                'oare_id': ''
+            })
+        print(f"Publication pairs: {len(pub_df)}")
+    
+    # Create DataFrame
+    final_df = pd.DataFrame(all_data)
+    
+    # Remove duplicates
+    original_len = len(final_df)
+    final_df = final_df.drop_duplicates(subset=['translation'], keep='first')
+    print(f"Removed {original_len - len(final_df)} duplicates")
+    
+    # Filter valid pairs
+    final_df = final_df[
+        (final_df['transliteration'].str.len() > 10) &
+        (final_df['translation'].str.len() > 5)
+    ]
+    
+    # Save
+    final_df.to_csv(OUTPUT_DIR / "final_training_data.csv", index=False)
+    
+    print(f"\nFinal training set: {len(final_df)}")
+    print(f"  - Document level: {len(final_df[final_df['source'] == 'train_document'])}")
+    print(f"  - Sentence level: {len(final_df[final_df['source'] == 'aligned_sentence'])}")
+    print(f"  - Publications: {len(final_df[final_df['source'] == 'publication'])}")
+    print(f"\nSaved to: {OUTPUT_DIR / 'final_training_data.csv'}")
+    
+    return final_df
 
-
-def main():
-    parser = argparse.ArgumentParser(description='Extract translations from publications using LLM')
-    parser.add_argument('--sample', type=int, help='Process only N PDFs for testing')
-    parser.add_argument('--dry-run', action='store_true', help='Show what would be processed without calling LLM')
-    parser.add_argument('--api-key', type=str, help='Gemini API key (or set GEMINI_API_KEY env var)')
-    parser.add_argument('--output', type=str, default='data/processed/extracted_translations.csv',
-                        help='Output file path')
-    args = parser.parse_args()
-    
-    # Paths
-    base_dir = Path(__file__).parent.parent
-    links_path = base_dir / 'data' / 'processed' / 'publication_links.csv'
-    pubs_path = base_dir / 'data' / 'publications.csv'
-    output_path = base_dir / args.output
-    
-    # Check for links file
-    if not links_path.exists():
-        print(f"Error: Run publication_matcher.py first to create {links_path}")
-        return
-    
-    print("Loading data...")
-    links_df = pd.read_csv(links_path)
-    pubs_df = pd.read_csv(pubs_path)
-    
-    print(f"Publication links: {len(links_df)}")
-    print(f"Unique PDFs with links: {links_df['pdf_name'].nunique()}")
-    
-    if args.dry_run:
-        print("\n=== DRY RUN MODE ===")
-        # Just show statistics
-        for pdf in links_df['pdf_name'].unique()[:args.sample or 5]:
-            akkadian_pages = len(pubs_df[(pubs_df['pdf_name'] == pdf) & (pubs_df['has_akkadian'] == True)])
-            linked = links_df[links_df['pdf_name'] == pdf]['oare_id'].nunique()
-            print(f"  {pdf[:50]}: {akkadian_pages} Akkadian pages, {linked} linked texts")
-        return
-    
-    # Setup Gemini
-    if not setup_gemini(args.api_key):
-        return
-    
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    print("Gemini API configured")
-    
-    # Process
-    extractions_df = process_matches(
-        links_df, pubs_df, model,
-        sample_size=args.sample,
-        dry_run=args.dry_run
-    )
-    
-    if len(extractions_df) > 0:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        extractions_df.to_csv(output_path, index=False)
-        print(f"\nSaved {len(extractions_df)} extractions to {output_path}")
-        
-        # Statistics
-        print("\n=== EXTRACTION STATISTICS ===")
-        print(f"Total extractions: {len(extractions_df)}")
-        print(f"By language:")
-        for lang, count in extractions_df['language'].value_counts().items():
-            print(f"  {lang}: {count}")
-        print(f"High confidence: {len(extractions_df[extractions_df['confidence'] == 'high'])}")
-    else:
-        print("No extractions found")
-
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    pairs = extract_all_translations()
+    final = create_final_training_set()

@@ -144,6 +144,27 @@ def clean_whitespace(text: str) -> str:
     return text
 
 
+def convert_parenthetical_determinatives(text: str) -> str:
+    """Convert parenthetical determinatives to curly-bracket format."""
+    if not text:
+        return ""
+    
+    paren_determinatives = [
+        'mul', 'lu₂', 'lu2', 'lú', 'e₂', 'e2', 'uru', 'kur',
+        'geš', 'ĝeš', 'giš', 'tug₂', 'tug2', 'dub', 'id₂', 'id2',
+        'mušen', 'na₄', 'na4', 'kuš', 'u₂', 'u2', 'urudu', 'zabar',
+        'ki', 'mi', 'd', 'm', 'f',
+    ]
+    
+    for det in paren_determinatives:
+        pattern_before = r'\((' + re.escape(det) + r')\)(?=[A-Za-zŠṢṬḪšṣṭḫÀÁÂÃÄÅàáâãäå₀₁₂₃₄₅₆₇₈₉])'
+        text = re.sub(pattern_before, r'{\1}', text, flags=re.IGNORECASE)
+        pattern_after = r'(?<=[A-Za-zŠṢṬḪšṣṭḫÀÁÂÃÄÅàáâãäå₀₁₂₃₄₅₆₇₈₉-])\((' + re.escape(det) + r')\)'
+        text = re.sub(pattern_after, r'{\1}', text, flags=re.IGNORECASE)
+    
+    return text
+
+
 def remove_parenthetical_comments(text: str) -> str:
     """Remove or handle parenthetical comments."""
     if not text:
@@ -163,6 +184,7 @@ def clean_transliteration(text: str, verbose: bool = False) -> str:
     
     text = remove_line_numbers(text)
     text = remove_scribal_annotations(text)
+    text = convert_parenthetical_determinatives(text)  # NEW: (d) → {d}
     text = remove_parenthetical_comments(text)
     text = standardize_gaps(text)
     text = normalize_brackets(text)
@@ -301,6 +323,38 @@ def test_clean_whitespace():
     print("✓ clean_whitespace tests passed")
 
 
+def test_convert_parenthetical_determinatives():
+    """Test conversion of parenthetical determinatives to curly-bracket format."""
+    
+    # Test (d) before word - deity determinative
+    assert "{d}" in convert_parenthetical_determinatives("(d)UTU")
+    assert "{d}" in convert_parenthetical_determinatives("(d)IŠKUR")
+    assert "{d}" in convert_parenthetical_determinatives("(d)IM-ba-ni")
+    
+    # Test (ki) after word - location determinative
+    assert "{ki}" in convert_parenthetical_determinatives("a-lim(ki)")
+    assert "{ki}" in convert_parenthetical_determinatives("kà-ni-iš(ki)")
+    
+    # Test (m) before word - masculine name marker
+    assert "{m}" in convert_parenthetical_determinatives("(m)A-šur-i-dí")
+    assert "{m}" in convert_parenthetical_determinatives("(m)a-bi₄-a")
+    
+    # Test (f) before word - feminine name marker
+    assert "{f}" in convert_parenthetical_determinatives("(f)IŠTAR")
+    
+    # Test preservation of content
+    result = convert_parenthetical_determinatives("(d)UTU-tap-pá-i")
+    assert "UTU-tap-pá-i" in result
+    assert "{d}" in result
+    
+    # Test combined
+    result = convert_parenthetical_determinatives("a-lim(ki) (d)UTU")
+    assert "{ki}" in result
+    assert "{d}" in result
+    
+    print("✓ convert_parenthetical_determinatives tests passed")
+
+
 def test_remove_parenthetical_comments():
     """Test parenthetical comment handling."""
     
@@ -399,6 +453,7 @@ def run_all_tests():
     test_normalize_determinatives()
     test_remove_line_numbers()
     test_clean_whitespace()
+    test_convert_parenthetical_determinatives()  # NEW
     test_remove_parenthetical_comments()
     test_clean_transliteration_full_pipeline()
     test_real_world_examples()
