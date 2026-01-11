@@ -1,1 +1,6 @@
-.venv/data/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+data/publications.csv
+

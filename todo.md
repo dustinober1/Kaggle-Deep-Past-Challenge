@@ -16,9 +16,9 @@
 - [x] Quality filter extracted pairs
 
 ### 1.3 Lexicon Enhancement
-- [ ] Build word-level translation memory from eBL_Dictionary
-- [ ] Create lookup table for common patterns
-- [ ] Handle personal names (PN) and geographic names (GN) specially
+- [x] Build word-level translation memory from eBL_Dictionary
+- [x] Create lookup table for common patterns
+- [x] Handle personal names (PN) and geographic names (GN) specially
 
 ---
 

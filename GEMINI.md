@@ -10,6 +10,13 @@
   - AICC scraped: 4,755
 - Output: `data/processed/augmented_train.csv`
 
+## Phase 1.3 Results
+- **Lexicon Enhancement**: Built 3 lookup resources
+  - `word_dictionary.json`: 13,718 definitions
+  - `form_to_lexeme.json`: 22,053 form mappings
+  - `named_entities.json`: 13,422 PNs, 334 GNs
+- **Coverage**: 10.7% of training tokens matched to lexicon forms (baseline)
+
 ## Phase 1.2 Results
 - **AICC Scraper**: 77% success rate (4,755 / 6,141 texts)
   - Uses JSON API at `/p/pXXX.json`
