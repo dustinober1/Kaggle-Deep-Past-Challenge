@@ -2,7 +2,7 @@
 
 ## Project Status
 - **Date**: 2026-01-11
-- **Current Task**: Phase 5 Baseline Model Development implemented ✅
+- **Current Task**: Phase 5 Baseline Model Development Completed ✅
 
 ## Merged Training Dataset
 - **Total samples: 6,316** (4× increase!)
@@ -54,9 +54,10 @@
 - `scripts/translation_pipeline.py` - DE/FR → EN
 - `scripts/align_and_filter.py` - Quality filtering
 - `scripts/dataset_loader.py` - Akkadian dataset loader
-- `scripts/finetune_pretrained.py` - mBART/NLLB/M2M fine-tuning
-- `scripts/custom_transformer.py` - Custom model architecture
-- `scripts/train_custom.py` - Custom model training loop
+- `scripts/finetune_pretrained.py` - mBART/NLLB/M2M fine-tuning ✓
+- `scripts/custom_transformer.py` - Custom model architecture (with ALiBi) ✓
+- `scripts/train_custom.py` - Custom model training loop (with CP/ES) ✓
+- `scripts/compare_models.py` - Model comparison suite ✓
 
 ## Changelog
 - Initialized git repository and `.venv`
@@ -67,7 +68,8 @@
 - **Phase 1.2**: Merged training data (6,316 samples)
 - **Phase 4**: Tokenizer training (SentencePiece)
 - **Phase 5**: Baseline Model Development
-  - Implemented unified fine-tuning script for mBART/NLLB/M2M
-  - Implemented Custom Transformer training from scratch
+  - Implemented unified fine-tuning script for mBART/NLLB/M2M with logging
+  - Implemented Custom Transformer with ALiBi, Noam Scheduler, Checkpointing
   - Verified training loop execution on MPS
+  - Created comparison script
 

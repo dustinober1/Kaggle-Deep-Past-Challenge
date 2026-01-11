@@ -7,9 +7,11 @@ from transformers import (
     Seq2SeqTrainingArguments,
     Seq2SeqTrainer,
     DataCollatorForSeq2Seq,
+    TrainerCallback
 )
 import numpy as np
 import sacrebleu
+import json
 from dataset_loader import get_akkadian_dataset
 
 # Model Checkpoints
@@ -18,6 +20,18 @@ MODELS = {
     "nllb": "facebook/nllb-200-distilled-600M",
     "m2m": "facebook/m2m100_418M"
 }
+
+class JSONLoggerCallback(TrainerCallback):
+    def __init__(self, output_dir):
+        self.output_dir = output_dir
+        self.metrics = []
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if logs:
+            logs['epoch'] = state.epoch
+            self.metrics.append(logs)
+            with open(os.path.join(self.output_dir, "metrics.json"), "w") as f:
+                json.dump(self.metrics, f, indent=2)
 
 def compute_metrics(eval_preds, tokenizer):
     preds, labels = eval_preds
@@ -56,11 +70,6 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
     
     # Setup source and target languages
-    # For mBART/NLLB/M2M, we need to set specific lang codes.
-    # Since Akkadian is not standard, we map:
-    # Source (Akkadian) -> Use a placeholder or nearest neighbor (e.g., 'ar_AR' or generic)
-    # Target (English) -> 'en_XX' (mBART), 'eng_Latn' (NLLB), 'en' (M2M)
-    
     if args.model == "mbart":
         tokenizer.src_lang = "ar_AR" # Proxy for Akkadian
         tokenizer.tgt_lang = "en_XX"
@@ -91,8 +100,6 @@ def main():
         inputs = [ex for ex in examples["transliteration_cleaned"]] # Use cleaned if available
         targets = [ex for ex in examples["translation_normalized"]]
         
-        # For NLLB/M2M we might need to handle tokenizer languages differently in call
-        # But generally:
         if args.model == "mbart":
              tokenizer.src_lang = src_lang_code
         
@@ -100,11 +107,9 @@ def main():
         
         # Setup target tokenization
         if args.model == "m2m":
-            # M2M needs to set target lang context manager usually, or just tokenizer targets
              with tokenizer.as_target_tokenizer():
                 labels = tokenizer(targets, max_length=max_target_length, truncation=True)
         else:
-            # mBART/NLLB
             with tokenizer.as_target_tokenizer():
                  labels = tokenizer(targets, max_length=max_target_length, truncation=True)
 
@@ -117,11 +122,10 @@ def main():
     # Load Model
     model = AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint)
     
-    # Set decoder start token id if needed (crucial for multilingual models)
+    # Set decoder start token id
     if args.model == "mbart":
         model.config.decoder_start_token_id = tokenizer.lang_code_to_id[tgt_lang_code]
     elif args.model == "nllb":
-        # NLLB usually handles this auto if processed correctly, but explicit is good
          model.config.decoder_start_token_id = tokenizer.convert_tokens_to_ids(tgt_lang_code)
     elif args.model == "m2m":
         model.config.decoder_start_token_id = tokenizer.get_lang_id(tgt_lang_code)
@@ -129,6 +133,7 @@ def main():
     # Training Arguments
     run_name = f"{args.model}-finetune"
     output_path = os.path.join(args.output_dir, run_name)
+    os.makedirs(output_path, exist_ok=True)
     
     # Check for device
     if torch.backends.mps.is_available():
@@ -151,9 +156,10 @@ def main():
         save_total_limit=2,
         num_train_epochs=args.epochs,
         predict_with_generate=True,
-        fp16=False, # MPS doesn't support fp16 mixed precision well usually, standard float32 is safer
+        fp16=False, 
         use_mps_device=True if device == "mps" else False,
         push_to_hub=False,
+        logging_strategy="epoch",
     )
     
     data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
@@ -166,6 +172,7 @@ def main():
         data_collator=data_collator,
         tokenizer=tokenizer,
         compute_metrics=lambda preds: compute_metrics(preds, tokenizer),
+        callbacks=[JSONLoggerCallback(output_path)]
     )
     
     print("Starting training...")

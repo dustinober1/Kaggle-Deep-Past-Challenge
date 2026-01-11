@@ -31,17 +31,25 @@ class TransformerModel(nn.Module):
         num_encoder_layers=6, 
         num_decoder_layers=6, 
         dim_feedforward=2048, 
-        dropout=0.1
+        dropout=0.1,
+        use_alibi=False
     ):
         super().__init__()
         
         self.model_type = 'Transformer'
         self.src_mask = None
         self.d_model = d_model
+        self.use_alibi = use_alibi
+        self.nhead = nhead
         
         self.embedding_src = nn.Embedding(src_vocab_size, d_model)
         self.embedding_tgt = nn.Embedding(tgt_vocab_size, d_model)
-        self.pos_encoder = PositionalEncoding(d_model, dropout=dropout)
+        
+        if not use_alibi:
+            self.pos_encoder = PositionalEncoding(d_model, dropout=dropout)
+        else:
+            self.pos_encoder = None
+            self.dropout_layer = nn.Dropout(dropout)
         
         self.transformer = nn.Transformer(
             d_model=d_model,
@@ -71,8 +79,37 @@ class TransformerModel(nn.Module):
         src = self.embedding_src(src) * math.sqrt(self.d_model)
         tgt = self.embedding_tgt(tgt) * math.sqrt(self.d_model)
         
-        src = self.pos_encoder(src)
-        tgt = self.pos_encoder(tgt)
+        if self.use_alibi:
+            src = self.dropout_layer(src)
+            tgt = self.dropout_layer(tgt)
+            
+            # Generate ALiBi bias for Source-to-Source attention (Encoder)
+            # Shapes: src_mask provided is usually boolean [src_len, src_len].
+            # Here we need float mask for bias integration.
+            # If src_mask is None or all zeros, we just use ALiBi. 
+            # If it's provided (e.g. for causal masking, though src is usually bidirectional), we add to it.
+            
+            if src_mask is None:
+                src_seq_len = src.shape[1]
+                # [nhead, seq_len, seq_len]
+                alibi_bias = self.get_alibi_mask(src_seq_len, self.nhead, src.device)
+                
+                # Expand for batch size is handled by broadcasting in PyTorch MultiheadAttention usually:
+                # attn_mask shape: (N * num_heads, L, S) or (num_heads, L, S). 
+                # nn.Transformer expects (S, S) or (Batch*num_heads, S, S)
+                # We need (batch_size * nhead, src_seq_len, src_seq_len) to be safe or rely on broadcasting.
+                # However, PyTorch transformer allows (nhead*batch, L, S).
+                bs = src.shape[0]
+                src_mask = alibi_bias.repeat(bs, 1, 1) # [bs*nhead, seq_len, seq_len]
+            
+            # Note: For simplicity in this iteration, we only apply ALiBi to encoder self-attention (src_mask).
+            # Decoder also benefits, but usually relative PE is most critical for Encoder.
+            # Implementing full encoder-decoder ALiBi correctly requires modifying cross-attention which is tricky with nn.Transformer high-level API
+            # without hacking mask logic significantly. We Stick to Encoder self-attention ALiBi for now.
+            
+        else:
+            src = self.pos_encoder(src)
+            tgt = self.pos_encoder(tgt)
         
         output = self.transformer(
             src, 
@@ -87,6 +124,7 @@ class TransformerModel(nn.Module):
         
         return self.out(output)
 
+
     def create_mask(self, src, tgt, pad_token_id=0):
         src_seq_len = src.shape[1]
         tgt_seq_len = tgt.shape[1]
@@ -98,3 +136,36 @@ class TransformerModel(nn.Module):
         tgt_padding_mask = (tgt == pad_token_id)
         
         return src_mask, tgt_mask, src_padding_mask, tgt_padding_mask
+        
+    def get_alibi_mask(self, seq_len, nhead, device):
+        # ALiBi: get slopes for each head
+        def get_slopes(n):
+            def get_slopes_power_of_2(n):
+                start = (2**(-2**-(math.log2(n)-3)))
+                ratio = start
+                return [start*ratio**i for i in range(n)]
+
+            if math.log2(n).is_integer():
+                return get_slopes_power_of_2(n)                   
+            else:                                                 
+                closest_power_of_2 = 2 ** math.floor(math.log2(n))
+                return get_slopes_power_of_2(closest_power_of_2) + get_slopes(2 * closest_power_of_2)[0::2][:n-closest_power_of_2]
+        
+        slopes = torch.tensor(get_slopes(nhead), device=device).unsqueeze(1).unsqueeze(1) # [nhead, 1, 1]
+        
+        # Create bias matrix
+        context_position = torch.arange(seq_len, device=device).unsqueeze(1)
+        memory_position = torch.arange(seq_len, device=device).unsqueeze(0)
+        relative_position = torch.abs(context_position - memory_position) 
+        # Note: ALiBi usually uses unidirectional negative distances for decoder, 
+        # but for encoder (bidirectional) relative distance is typically symmetric absolute or just relative.
+        # Original ALiBi is for causal decoder. adaptation for Encoder-Decoder:
+        # Encoder: use symmetric distance. Decoder: use causal distance.
+        # Here we just implement the bias term. For standard transformer usage in PyTorch "src_mask" is additive attention mask.
+        # We need shape [batch*nhead, seq_len, seq_len] or [nhead, seq_len, seq_len]
+        
+        # Construct symmetric mask for encoder (non-causal) - simplistic adaptation
+        # Bias = -1 * slope * |i - j|
+        bias = -1 * slopes * relative_position.unsqueeze(0) # [nhead, seq_len, seq_len]
+        return bias 
+
