@@ -2,7 +2,14 @@
 
 ## Project Status
 - **Date**: 2026-01-11
-- **Current Task**: Exploratory Data Analysis Complete
+- **Current Task**: Phase 1.1 Sentence Alignment Complete
+
+## Sentence Alignment Results
+- Overlapping documents: 253 (train ∩ sentences)
+- Aligned sentence pairs: 1,213
+- Average sentences/document: 4.79
+- Valid translations: 99.5%
+- Output: `data/processed/sentence_aligned_train.csv`
 
 ## Dataset Summary
 | Dataset | Rows | Purpose |
@@ -29,3 +36,5 @@
 - Generated visualizations in `eda/figures/`
 - Completed comprehensive `report.md` with EDA findings
 - Created `todo.md` with competition roadmap
+- **Phase 1.1**: Created `scripts/sentence_alignment.py` for sentence-level dataset
+- **Phase 1.1**: Generated 1,213 aligned pairs from 253 documents

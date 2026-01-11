@@ -3,10 +3,10 @@
 ## Phase 1: Data Augmentation (Priority: High)
 
 ### 1.1 Sentence Alignment Integration
-- [ ] Parse `Sentences_Oare_FirstWord_LinNum.csv` for sentence-level pairs
-- [ ] Join with train.csv via `text_uuid` ↔ `oare_id`
-- [ ] Create sentence-aligned training dataset
-- [ ] Validate alignment quality on sample
+- [x] Parse `Sentences_Oare_FirstWord_LinNum.csv` for sentence-level pairs
+- [x] Join with train.csv via `text_uuid` ↔ `oare_id`
+- [x] Create sentence-aligned training dataset
+- [x] Validate alignment quality on sample
 
 ### 1.2 Publication Translation Extraction
 - [ ] Build ID matching pipeline (aliases → pdf_name)
