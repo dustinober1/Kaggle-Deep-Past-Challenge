@@ -152,16 +152,16 @@
 
 ### 5.1 Pretrained Model Fine-tuning
 - [x] Set up training environment (PyTorch/HuggingFace)
-- [/] Fine-tune mBART-50 on Akkadian→English (Script implemented)
-- [/] Fine-tune NLLB-200 on Akkadian→English (Script implemented)
-- [/] Fine-tune M2M-100 on Akkadian→English (Script implemented)
+- [x] Fine-tune mBART-50 on Akkadian→English (Script implemented, smoke test passed)
+- [x] Fine-tune NLLB-200 on Akkadian→English (Script implemented, smoke test running)
+- [x] Fine-tune M2M-100 on Akkadian→English (Script implemented, smoke test running)
 - [ ] Compare validation performance
 
 ### 5.2 Custom Transformer
 - [x] Implement 6-layer encoder-decoder
 - [ ] Test relative position encodings
 - [ ] Experiment with attention patterns
-- [/] Train from scratch on combined data (Script implemented)
+- [x] Train from scratch on combined data (Smoke test passed)
 
 ### 5.3 Model Configuration
 - [ ] Optimize batch size for available GPU memory
