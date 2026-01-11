@@ -25,10 +25,10 @@
 ## Phase 2: Preprocessing Pipeline
 
 ### 2.1 Transliteration Cleaning
-- [ ] Remove scribal annotations: `!`, `?`, `˹ ˺`
-- [ ] Standardize gaps: `[x]` → `<gap>`, `…` → `<big_gap>`
-- [ ] Normalize brackets: `[ ]` → content only
-- [ ] Handle determinatives: `{d}`, `{ki}` consistently
+- [x] Remove scribal annotations: `!`, `?`, `˹ ˺`
+- [x] Standardize gaps: `[x]` → `<gap>`, `…` → `<big_gap>`
+- [x] Normalize brackets: `[ ]` → content only
+- [x] Handle determinatives: `{d}`, `{ki}` consistently
 
 ### 2.2 Tokenization Strategy
 - [ ] Train SentencePiece/BPE on all transliterations
@@ -117,7 +117,7 @@
 |-------|-------------|--------|
 | EDA | 2026-01-11 | ✅ Complete |
 | Data Augmentation | 2026-01-18 | 🔲 Not started |
-| Preprocessing | 2026-01-22 | 🔲 Not started |
+| Preprocessing | 2026-01-22 | 🟡 In progress |
 | Baseline Models | 2026-02-05 | 🔲 Not started |
 | Advanced Techniques | 2026-02-28 | 🔲 Not started |
 | Final Submission | 2026-03-23 | 🔲 Deadline |
