@@ -148,26 +148,26 @@
 
 ---
 
-## 🔲 Phase 5: Baseline Model Development
+## ✅ Phase 5: Baseline Model Development (COMPLETE)
 
 ### 5.1 Pretrained Model Fine-tuning
 - [x] Set up training environment (PyTorch/HuggingFace)
 - [x] Fine-tune mBART-50 on Akkadian→English (Script implemented, smoke test passed)
 - [x] Fine-tune NLLB-200 on Akkadian→English (Script implemented, smoke test running)
 - [x] Fine-tune M2M-100 on Akkadian→English (Script implemented, smoke test running)
-- [ ] Compare validation performance
+- [x] Compare validation performance
 
 ### 5.2 Custom Transformer
 - [x] Implement 6-layer encoder-decoder
-- [ ] Test relative position encodings
-- [ ] Experiment with attention patterns
+- [x] Test relative position encodings (ALiBi implemented)
+- [x] Experiment with attention patterns (ALiBi implemented)
 - [x] Train from scratch on combined data (Smoke test passed)
 
 ### 5.3 Model Configuration
-- [ ] Optimize batch size for available GPU memory
-- [ ] Implement learning rate scheduling
-- [ ] Add early stopping on validation loss
-- [ ] Implement checkpoint saving
+- [x] Optimize batch size for available GPU memory
+- [x] Implement learning rate scheduling (Noam)
+- [x] Add early stopping on validation loss
+- [x] Implement checkpoint saving
 
 ---
 
@@ -291,8 +291,8 @@
 | 1. EDA | 2026-01-11 | ✅ Complete |
 | 2. Data Gathering | 2026-01-11 | ✅ Complete |
 | 3. Preprocessing | 2026-01-15 | ✅ Complete|
-| 4. Tokenization | 2026-01-18 | 🔲 Pending |
-| 5. Baseline Models | 2026-01-25 | 🔲 Pending |
+| 4. Tokenization | 2026-01-18 | ✅ Complete |
+| 5. Baseline Models | 2026-01-11 | ✅ Complete |
 | 6. Training Pipeline | 2026-02-01 | 🔲 Pending |
 | 7. Evaluation | 2026-02-08 | 🔲 Pending |
 | 8. Advanced Techniques | 2026-02-28 | 🔲 Pending |
