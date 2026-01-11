@@ -8,3 +8,4 @@
 - Initialized git repository
 - Created `.venv` virtual environment
 - Added `.gitignore`
+- Formatted competition rules and documentation in `rules/`
